@@ -27,8 +27,6 @@ function main(pokemon) {
             "data": {
                 "lat": pokemon.location.lat,
                 "lon": pokemon.location.lon
-                // "lat": 48.1,
-                // "lon": -121.2
             }
         };
 
@@ -90,13 +88,10 @@ console.log("Executing handler...");
 
 exports.handler = function(event, context, callback) {
     console.log("[START] Sending iOS push notifications function started at " + new Date());
-    // console.log("EVENT: ", event);
-    // console.log("CONTEXT: ", context);
-    // console.log("CALLBACK: ", callback);
 
     console.log("New Pokemon appeared: " + JSON.stringify(event));
     
-    main(event).then(done => {
+    main(event.data).then(done => {
         console.log("Done", done);
         console.log("[END] Congratulations! Sending iOS push notifications function completed successfully at " + new Date());
         context.succeed(done);
