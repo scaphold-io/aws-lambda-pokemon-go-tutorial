@@ -7,7 +7,7 @@ function main(pokemon) {
     return new Promise((resolve, reject) => {
         console.log("Retrieving nearest Pokemon trainers...");
 
-        let query = `query Viewer ($data: _LocationInput!) {
+        let query = `query Viewer ($data: _GeoLocationInput!) {
             viewer {
                 getNearestUserByLocation (location: $data) {
                     dist
