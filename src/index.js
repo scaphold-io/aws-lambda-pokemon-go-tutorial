@@ -2,14 +2,28 @@
 import config from './config';
 import request from 'request';
 
-function main(pokemon) {
-    // Note: This is where your main code logic should go.
+function post(body) {
     return new Promise((resolve, reject) => {
-        console.log("Retrieving nearest Pokemon trainers...");
+        const options = {
+            method: 'POST',
+            url: config.scapholdUrl,
+            json: true,
+            body: body
+        };
+        request(options, function(error, response, body) {
+            if (error) {
+                return reject(error);
+            }
+            resolve(body);
+        })
+    })
+}
 
-        let query = `query Viewer ($data: _GeoLocationInput!) {
+function main(pokemon) {
+    const body = {
+        query: `query Viewer ($data: _GeoLocationInput!) {
             viewer {
-                getNearestUserByLocation (location: $data) {
+                getNearestUsersByLocation (location: $data) {
                     dist
                     node {
                         id
@@ -21,62 +35,51 @@ function main(pokemon) {
                     }
                 }
             }
-        }`;
-
-        let variables = {
+        }`,
+        variables: {
             "data": {
                 "lat": pokemon.location.lat,
                 "lon": pokemon.location.lon
             }
-        };
+        }
+    };
 
-        let body = {
-            query: query,
-            variables: variables
-        };
+    return post(body).then(res => {
+        console.log(`Looking for nearest user in: ${JSON.stringify(res)}`);
+        let nearestUser;
+        if (res.data.viewer.getNearestUsersByLocation.length) {
+            nearestUser = res.data.viewer.getNearestUsersByLocation[0].node;
+            console.log(`Found nearest user: ${JSON.stringify(nearestUser)}`);
+        } else {
+            console.log(`Looks like there's no one around.`);
+            return resolve("Looks like there's no one around.");
+        }
 
-        let options = {
-            method: 'POST',
-            url: config.scapholdUrl,
-            json: true,
-            body: body
-        };
-        return request(options, (error, response, body) => {
-            if (error) throw new Error(error);
-            console.log(JSON.stringify(body));
-            console.log("Sending iOS push notifications to nearest Pokemon trainer...");
-
-            query = `mutation SendPushNotificationToUser($data: _SendPushNotificationToUserInput!){
-                sendPushNotificationToUser(input: $data){
+        const sendPushNotificationBody = {
+            query: `mutation sendPushNotificationToUserQuery($data: _SendPushNotificationToUserInput!) {
+                sendPushNotificationToUser(input: $data) {
                     badge
                     alertBody
                     alertActionLocKey
                 }
-            }`;
-
-            variables = {
+            }`,
+            variables: {
                 "data": {
-                    "userId": body.data.viewer.getNearestUserByLocation[0].node.id,
+                    "userId": nearestUser.id,
                     "badge": 1,
                     "alertBody": "A new Pokemon appeared near you! It's a Level " + pokemon.level + " " + pokemon.name + " with " + pokemon.health + " health.",
-                    "alertActionLocKey": "Catch it!",
-                    "payload": pokemon.location
+                    "alertActionLocKey": "Catch it!"
                 }
-            };
-
-            body = {
-                query: query,
-                variables: variables
-            };
-
-            options.body = body;
-            return request(options, (error, response, body) => {
-                console.log("Completed! Now go catch that Pokemon!");
-                if (error) throw new Error(error);
-                console.log(JSON.stringify(body));
-                resolve(body);
-            });
-        })
+            }
+        };
+        console.log(`Sending data ${JSON.stringify(sendPushNotificationBody)}`);
+        return post(sendPushNotificationBody);
+    }).then(res => {
+        console.log(`Successfully sent push notification and got response: ${JSON.stringify(res)}`);
+        return res;
+    }).catch(err => {
+        console.log(`Error sending push notification: ${err.message}`);
+        throw err;
     })
 }
 
